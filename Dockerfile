@@ -78,7 +78,7 @@ ARG APP_UID=1000
 ARG APP_GID=1000
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends curl libpq-dev \
+  && apt-get install -y --no-install-recommends curl libpq5 \
   && rm -rf /var/lib/apt/lists/* /usr/share/doc /usr/share/man \
   && apt-get clean \
   && groupadd -g "${APP_GID}" python \
@@ -99,11 +99,19 @@ ENV FLASK_DEBUG="${FLASK_DEBUG}" \
 
 COPY --chown=python:python --from=assets /app/public /public
 COPY --chown=python:python --from=app-build /home/python/.local /home/python/.local
-COPY --from=app-build /usr/local/bin/uv /usr/local/bin/uvx /usr/local/bin/
-COPY --chown=python:python . .
+COPY --chown=python:python bin/ ./bin
+COPY --chown=python:python config/ ./config
+COPY --chown=python:python db/ ./db
+COPY --chown=python:python hello/ ./hello
+COPY --chown=python:python alembic.ini .
 
 RUN if [ "${FLASK_DEBUG}" != "true" ]; then \
   ln -s /public /app/public && SECRET_KEY=dummy flask digest compile && rm -rf /app/public; fi
+
+RUN find /home/python/.local -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true \
+  && find /home/python/.local -type f -name "*.pyc" -delete 2>/dev/null || true \
+  && find /home/python/.local -type d -name "test*" -exec rm -rf {} + 2>/dev/null || true \
+  && find /home/python/.local -type d -name "tests" -exec rm -rf {} + 2>/dev/null || true
 
 ENTRYPOINT ["/app/bin/docker-entrypoint-web"]
 
